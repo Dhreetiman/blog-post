@@ -63,8 +63,6 @@ router.post("/createpost", auth, async (req, res) => {
       let txt = JSON.parse(cahcedProfileData);
       res.status(200).send({ msg: "from get", data: txt });
     } else {
-
-
       let obj = {};
 
       if (!isValidInput(message))
@@ -74,15 +72,16 @@ router.post("/createpost", auth, async (req, res) => {
       obj.message = message;
       obj.comments = comments;
 
-      let findData = await Blog
-        .findOne({ message: message })
-        .select({ _id: 0, __v: 0 });
+      let findData = await Blog.findOne({ message: message }).select({
+        _id: 0,
+        __v: 0,
+      });
 
       if (findData) {
         //-------- create in redis---------------//
         await SET_ASYNC(`${message}`, 60 * 5, JSON.stringify(findData));
 
-        return res.status(200).send({ message: 'by redis', Data: findData });
+        return res.status(200).send({ message: "by redis", Data: findData });
       }
 
       let blog = await Blog.create(obj);
@@ -98,7 +97,6 @@ router.post("/createpost", auth, async (req, res) => {
 
 router.get("/getpost", auth, async (req, res) => {
   try {
-
     // Getting data from redis............
     let cachedProfileData = await GET_ASYNC(`${req.user.id}`);
 
@@ -106,7 +104,6 @@ router.get("/getpost", auth, async (req, res) => {
       let txt = JSON.parse(cachedProfileData);
       res.status(200).send({ msg: "from get", data: txt });
     } else {
-
       let user = await User.findById(req.user.id)
         .select({ password: 0, __v: 0 })
         .lean();
@@ -167,6 +164,25 @@ router.put("/updatepost/:id", auth, async (req, res) => {
       message: "blog has been updated successfully",
       data: updatedPost,
     });
+  } catch (error) {
+    console.log(error);
+    return res.status(500).json("Something went wrong");
+  }
+});
+
+//==============< Delete post - Login required >==============//
+
+router.delete("/deletepost/:id", auth, async (req, res) => {
+  try {
+
+    let post = await Blog.findById(req.params.id);
+    if (!post) return res.status(404).send("Not Found");
+    if (post.createdBy != req.user.id) return res.status(401).send("Unauthorized user");
+
+    let deletedpost = await Blog.findByIdAndDelete(req.params.id)
+    res.status(200).send("post deleted successfully")
+
+
   } catch (error) {
     console.log(error);
     return res.status(500).json("Something went wrong");
